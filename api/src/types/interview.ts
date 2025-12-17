@@ -1,4 +1,3 @@
-
 /**
  * Database schema types (wl_interviews)
  */
@@ -16,7 +15,6 @@ export interface Interview {
   political_affiliation?: string;
   interviewer?: string;
   comments?: string;
-  raw_transcript?: string;
   creeated_at: string;
 };
 
@@ -39,22 +37,21 @@ export interface InterviewChunk {
  * Request body for creating a new interview
  */
 export interface CreateInterviewRequest {
-  // File path or identifier (comes from multer upload)
-  file: string;
-  
-  // Format options for processing
-  format: {
-    save_summary?: 'docx' | 'pdf' | 'txt'; // Optional summary output format
-    in: string; // Input format: 'mp3', 'acc', 'webm', 'wav', 'txt', etc.
-  };
-  
   // Interview metadata
-  name: string;           // Subject's name
-  address: string;        // Subject's address
-  occupation: string;     // Subject's occupation
-  party: string;          // Political affiliation
-  interviewer: string;    // Interviewer's name
-  comments?: string;      // Optional comments
+  title?: string; // File name
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  occupation?: string;
+  party?: string;
+  interviewer?: string;
+  comments?: string;
+  date_conducted?: string;
+  raw_transcript?: string;
+  date?: string;
+  age?: number;
 }
 
 /**
@@ -68,7 +65,32 @@ export interface CreateInterviewResponse {
 }
 
 export interface TranscriptChunk {
-  start_time: number;  // in seconds
-  end_time: number;    // in seconds
+  start_time: number;
+  end_time: number;
   text: string;
+}
+
+export interface LabeledChunk extends TranscriptChunk {
+  speaker: 'interviewer' | 'subject' | 'unknown';
+  labeled_text: string;  // "INTERVIEWER: what is your name"
+}
+
+export interface Chunk {
+  id: string;
+  interview_id: string;
+  start_time: number;
+  end_time: number;
+  text: string;
+  summary?: string;      // Optional: LLM-generated summary
+  embedding: number[];   // Vector embedding for semantic search
+  created_at: string;
+}
+
+export interface CreateChunkData {
+  interview_id: string;
+  start_time: number;
+  end_time: number;
+  text: string;
+  summary?: string;
+  embedding: number[];
 }

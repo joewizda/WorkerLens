@@ -15,19 +15,33 @@ export const listInterviews = async (req: Request, res: Response, next: NextFunc
 
 export const createInterview = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const metadata: CreateInterviewRequest = req.body;
     const file: Express.Multer.File | undefined = req.file;
     if (!file) {
       res.status(400).json({ error: 'No file uploaded' });
       return;
     }
     
+    // Parse metadata from form-data fields
     const ext = path.extname(file.originalname);
     const newPath = file.path + ext;
     await fs.rename(file.path, newPath);
     
     const updatedFile = { ...file, path: newPath };
     
+    const metadata: CreateInterviewRequest = {
+      name: req.body.name,
+      address: req.body.address,
+      city: req.body.city,
+      state: req.body.state,
+      zip: req.body.zip,
+      date: req.body.date,
+      occupation: req.body.occupation,
+      party: req.body.party,
+      interviewer: req.body.interviewer,
+      comments: req.body.comments || '',
+      ...(req.body.age && { age: parseInt(req.body.age, 10) }),
+    };
+    console.log("Metadata", metadata);
     const result = await interviewService.createInterview(metadata, updatedFile);
     res.status(201).json(result);
   } catch (err) {
