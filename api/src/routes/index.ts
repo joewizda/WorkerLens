@@ -1,10 +1,10 @@
 import { Router } from "express";
 import interviewsRouter from "./interviews";
-// import mediaRouter from "./media";
+import embedRouter from "./embed";
 
 const router = Router();
 
 router.use("/interviews", interviewsRouter);
-// router.use("/media", mediaRouter);
+router.use("/embed", embedRouter);
 
 export default router;
