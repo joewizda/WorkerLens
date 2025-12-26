@@ -1,5 +1,21 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import OpenAI from 'openai';
 import type { LLMProvider, LLMMessage, LLMResponse, LLMOptions } from '../types/llm';
+
+const apiKey =
+  process.env.OPENAI_API_KEY ??
+  process.env.LLM_API_KEY ??
+  "";
+
+if (!apiKey) {
+  throw new Error("Missing OpenAI API key. Set OPENAI_API_KEY or LLM_API_KEY.");
+}
+
+const defaultModel = process.env.SUMMARIZER_MODEL ?? process.env.LLM_MODEL ?? "gpt-4o-mini";
+const embeddingModel = process.env.EMBEDDING_MODEL ?? "text-embedding-3-small";
+
 
 export class OpenAIProvider implements LLMProvider {
   private client: OpenAI;
@@ -40,4 +56,22 @@ export class OpenAIProvider implements LLMProvider {
 
     return response.data[0]?.embedding || [];
   }
+}
+
+export const llm = new OpenAIProvider(apiKey, defaultModel, embeddingModel);
+// Convenience wrapper built on llm.chat
+export async function summarizeText(
+  content: string,
+  opts?: { model?: string; temperature?: number; max_tokens?: number }
+): Promise<string> {
+  const messages: LLMMessage[] = [
+    { role: "system", content: "Summarize the text concisely in 1-2 sentences. Use plain language." },
+    { role: "user", content },
+  ];
+  const resp = await llm.chat(messages, {
+    ...(opts?.model && { model: opts.model }),
+    temperature: opts?.temperature ?? 0.2,
+    ...(opts?.max_tokens !== undefined && { max_tokens: opts.max_tokens }),
+  });
+  return resp.content.trim();
 }

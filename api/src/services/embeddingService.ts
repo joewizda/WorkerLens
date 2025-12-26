@@ -1,22 +1,11 @@
 import pool from "../database";
 import { OpenAIProvider } from "../llm/openai";
-
-export interface EmbeddingSearchResult {
-  id: string;
-  interview_id: string;
-  sequence: number;
-  content: string;
-  distance: number;
-  relevance: number;
-  start_time?: number;
-  end_time?: number;
-}
+import { EmbeddingSearchResult } from "../types/embed";
 
 export const searchSimilarEmbeddings = async (
   searchString: string,
   limit: number = 10
 ): Promise<EmbeddingSearchResult[]> => {
-  // Generate embedding for the search string
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) {
     throw new Error("LLM_API_KEY environment variable is not set");
@@ -26,7 +15,6 @@ export const searchSimilarEmbeddings = async (
   const embedding = await openai.embed(searchString);
   const embeddingString = `[${embedding.join(",")}]`;
 
-  // Search for similar vectors
   const result = await pool.query(
     `SELECT 
       id,
