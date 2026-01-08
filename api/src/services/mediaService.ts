@@ -1,14 +1,15 @@
 import { CreateMediaRequest, JsonObject } from "../types/media"
 import { promises as fs, constants as FS } from "fs";
 import path from "path";
-import crypto from "crypto";
 import pool from "../database";
 import { llm, summarizeText } from "../llm/openai";
+import type { LLMImageContent } from "../types/llm";
 import {
   runCmd,
   assertExecutable,
   assertFileExists,
   toPgVector,
+  ensureTmp
 } from "../helpers";
 
 // Prefer env; fall back to your local absolute paths
@@ -26,7 +27,9 @@ type WhisperJSON = { segments: WhisperSegment[]; language?: string };
 
 
 // Simple chunker based on character length; merges adjacent transcript segments
-function chunkSegments(segments: WhisperSegment[], maxChars = 2000): { sequence: number; content: string; start_time: number; end_time: number }[] {
+function chunkSegments(segments: WhisperSegment[], maxChars = 2000): {
+  sequence: number; content: string; start_time: number; end_time: number
+}[] {
   const chunks: { sequence: number; content: string; start_time: number; end_time: number }[] = [];
   let buffer: WhisperSegment[] = [];
   let acc = 0;
@@ -68,11 +71,11 @@ async function embedText(input: string): Promise<number[]> {
   return embedding;
 }
 
-async function ensureTmp(): Promise<string> {
-  const dir = path.join("/tmp", "workerlens", crypto.randomUUID());
-  await fs.mkdir(dir, { recursive: true });
-  return dir;
+async function descripeImage(input: LLMImageContent): Promise<string> {
+  const res = await llm.describeImage(input);
+  return res.content;
 }
+
 
 // Step 1: Download audio from YouTube (extracted to wav via yt-dlp)
 async function downloadYoutubeWav(url: string, outDir: string): Promise<string> {
@@ -243,7 +246,7 @@ function extractSegmentsFromWhisperJSON(obj: any): WhisperSegment[] {
   return [];
 }
 
-async function handleYoutube(req: CreateMediaRequest) {
+async function handleYoutube(req: CreateMediaRequest): Promise<{ id: string }> {
   console.log(`[media] start: youtube flow url=${req.location}`);
   if (!req.location) throw new Error("location (YouTube URL) is required for type 'youtube'.");
   const tmp = await ensureTmp();
@@ -329,13 +332,40 @@ async function handleYoutube(req: CreateMediaRequest) {
   return { id: mediaId };
 }
 
+async function handleImage(req: CreateMediaRequest): Promise<{ id: string }> {
+  const imgPathOrUrl: string | null = req.location || null;
+  const isURL = imgPathOrUrl?.startsWith("http://") || imgPathOrUrl?.startsWith("https://");
+  let imgContent: LLMImageContent;
+  if (isURL) {
+    imgContent = { type: "image_url", image_url: { url: imgPathOrUrl! } };
+  } else {
+    await assertFileExists(imgPathOrUrl!);
+    imgContent = { type: "image_file", image_file: { path: imgPathOrUrl! } };
+  }
+  const description = await descripeImage(imgContent);
+  await insertMediaRow({
+    ...(req.title !== undefined && { title: req.title }),
+    ...(req.location !== undefined && { location: req.location }),
+    description,
+    ...(req.metadata !== undefined && { metadata: req.metadata }),
+    type: req.type,
+    ...(req.tags !== undefined && { tags: req.tags }),
+  });
+
+  // Embed image here!
+
+  return {id: 'done'};
+}
+
 // Dispatcher used by the controller
 export async function createMedia(req: CreateMediaRequest): Promise<{ id: string }> {
   console.log(`[media] create: type=${req.type}`);
   switch (req.type) {
     case "youtube":
       return handleYoutube(req);
-    // TODO: implement other types: image/meme, text, video
+    case "image":
+    case "meme":
+      return handleImage(req);
     default:
       throw new Error(`Unsupported type '${req.type}'`);
   }

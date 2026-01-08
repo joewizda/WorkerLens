@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import path from "path";
 import { promises as fs, constants as fsConstants } from "fs";
 
 export async function runCmd(cmd: string, args: string[], cwd?: string): Promise<{ stdout: string; stderr: string }> {
@@ -35,4 +36,10 @@ export async function assertFileExists(filePath: string): Promise<void> {
 // Format embedding array for pgvector
 export function toPgVector(vec: number[]): string {
   return `[${vec.join(",")}]`;
+}
+
+export async function ensureTmp(): Promise<string> {
+  const dir = path.join("/tmp", "workerlens", crypto.randomUUID());
+  await fs.mkdir(dir, { recursive: true });
+  return dir;
 }
