@@ -94,8 +94,6 @@ export class OpenAIProvider implements LLMProvider {
             image_url: { url: imageContent.image_url.url, detail: 'high' as const },
           };
 
-    console.log('Describing image with model:', visionModel);
-
     const response = await this.client.chat.completions.create({
       model: visionModel,
       messages: [
@@ -124,10 +122,53 @@ export class OpenAIProvider implements LLMProvider {
         : {}),
     };
   }
+
+  async embedImage(
+    imageContent: LLMImageContent,
+    options?: { model?: string }
+  ): Promise<number[]> {
+    const embeddingUrl = process.env.LLM_API_EMBEDDING_URL;
+    if (!embeddingUrl) throw new Error("Missing LLM_API_EMBEDDING_URL");
+
+    const model = options?.model || process.env.IMAGE_EMBEDDING_MODEL || "clip-vit-base-patch32";
+
+    // Normalize to a string input (URL or data URL)
+    const input =
+      imageContent.type === "image_file"
+        ? await this.filePathToDataUrl(imageContent.image_file.path)
+        : imageContent.image_url.url;
+
+    const res = await fetch(embeddingUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model, input }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Image embedding API error: ${res.status} ${res.statusText}${text ? ` - ${text}` : ""}`);
+    }
+
+    const data = await res.json();
+    const vec =
+      (data?.data?.[0]?.embedding as number[] | undefined) ??
+      (data?.embedding as number[] | undefined) ??
+      (data?.vector as number[] | undefined);
+
+    if (!Array.isArray(vec)) throw new Error("Invalid embedding response shape");
+    return vec;
+  }
 }
 
 export const llm = new OpenAIProvider(apiKey, defaultModel, embeddingModel);
-// Convenience wrapper built on llm.chat
+
+/**
+ * Convenience wrappers
+ */
+
 export async function summarizeText(
   content: string,
   opts?: { model?: string; temperature?: number; max_tokens?: number }
@@ -144,7 +185,6 @@ export async function summarizeText(
   return resp.content.trim();
 }
 
-// Convenience wrapper for image description using the global llm instance
 export async function describeImageContent(
   imageContent: LLMImageContent,
   prompt?: string,
@@ -152,4 +192,11 @@ export async function describeImageContent(
 ): Promise<string> {
   const resp = await llm.describeImage(imageContent, prompt, opts);
   return resp.content.trim();
+}
+
+export async function embedImageContent(
+  imageContent: LLMImageContent,
+  opts?: { model?: string }
+): Promise<number[]> {
+  return llm.embedImage(imageContent, opts);
 }

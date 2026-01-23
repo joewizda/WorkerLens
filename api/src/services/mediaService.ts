@@ -4,6 +4,8 @@ import path from "path";
 import pool from "../database";
 import { llm, summarizeText } from "../llm/openai";
 import type { LLMImageContent } from "../types/llm";
+import type { WhisperSegment } from "../types/media";
+
 import {
   runCmd,
   assertExecutable,
@@ -12,7 +14,6 @@ import {
   ensureTmp
 } from "../helpers";
 
-// Prefer env; fall back to your local absolute paths
 const DEFAULT_WHISPER_BIN = "/Users/josephwizda/Whisper.cpp/whisper.cpp/build/bin/whisper-cli";
 const DEFAULT_MODELS_DIR = "/Users/josephwizda/Whisper.cpp/whisper.cpp/models";
 const BIN = {
@@ -22,11 +23,6 @@ const BIN = {
 };
 const WHISPER_MODEL = process.env.WHISPER_MODEL || path.join(DEFAULT_MODELS_DIR, "ggml-base.en.bin");
 
-type WhisperSegment = { start: number; end: number; text: string };
-type WhisperJSON = { segments: WhisperSegment[]; language?: string };
-
-
-// Simple chunker based on character length; merges adjacent transcript segments
 function chunkSegments(segments: WhisperSegment[], maxChars = 2000): {
   sequence: number; content: string; start_time: number; end_time: number
 }[] {
@@ -63,6 +59,12 @@ function chunkSegments(segments: WhisperSegment[], maxChars = 2000): {
 
 async function summarizeChunk(content: string): Promise<string> {
   return summarizeText(content);
+}
+
+async function embedImageContent(imageContent: LLMImageContent): Promise<number[]> {
+  const embedding = await llm.embedImage(imageContent);
+  if (!embedding.length) throw new Error("No embedding returned from LLM provider for image");
+  return embedding;
 }
 
 async function embedText(input: string): Promise<number[]> {
@@ -342,19 +344,33 @@ async function handleImage(req: CreateMediaRequest): Promise<{ id: string }> {
     await assertFileExists(imgPathOrUrl!);
     imgContent = { type: "image_file", image_file: { path: imgPathOrUrl! } };
   }
+
   const description = await descripeImage(imgContent);
-  await insertMediaRow({
-    ...(req.title !== undefined && { title: req.title }),
-    ...(req.location !== undefined && { location: req.location }),
+
+  // Insert wl_media and capture id!
+  const { id: mediaId } = await insertMediaRow({
+    ...(req.title !== undefined ? { title: req.title } : {}),
+    ...(req.location !== undefined ? { location: req.location } : {}),
     description,
-    ...(req.metadata !== undefined && { metadata: req.metadata }),
+    ...(req.metadata !== undefined ? { metadata: req.metadata } : {}),
     type: req.type,
-    ...(req.tags !== undefined && { tags: req.tags }),
+    ...(req.tags !== undefined ? { tags: req.tags } : {}),
   });
+  const embedding = await embedText(description);
+  console.log(`[media] embedding: dim=${embedding.length}`);
 
-  // Embed image here!
+  await insertChunkRows(mediaId, [
+    {
+      sequence: 1,
+      content: description || '',
+      start_time: 0,
+      end_time: 0,
+      embedding,
+    },
+  ]);
 
-  return {id: 'done'};
+  console.log(`[media] done: image flow id=${mediaId}`);
+  return { id: mediaId };
 }
 
 // Dispatcher used by the controller

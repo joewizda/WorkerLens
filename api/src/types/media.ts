@@ -16,3 +16,5 @@ export interface CreateMediaRequest {
   captions?: string;
   location?: string; // URL or file path
 }
+
+export type WhisperSegment = { start: number; end: number; text: string };

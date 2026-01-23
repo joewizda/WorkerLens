@@ -10,13 +10,13 @@ export interface Interview {
   state?: string;
   country?: string;
   date_conducted?: string;
-  age?: number
+  age?: number;
   occupation?: string;
   political_affiliation?: string;
   interviewer?: string;
   comments?: string;
   creeated_at: string;
-};
+}
 
 /**
  * Database schema types (wl_interview_chunks)
@@ -34,24 +34,40 @@ export interface InterviewChunk {
 }
 
 /**
- * Request body for creating a new interview
+ * Request body for creating a new redatacted interview
  */
 export interface CreateInterviewRequest {
-  // Interview metadata
-  title?: string; // File name
-  name: string;
+  interviewId: string;
+}
+
+/**
+ * Request body for creating a new full interview with metadata (unredatacted)
+ */
+export interface CreateInterviewFullRequest {
+  title?: string;
+  subject_name?: string;
+  occupation?: string;
+  political_affiliation?: string;
+  interviewer?: string;
+  comments?: string;
   address?: string;
   city?: string;
   state?: string;
-  zip?: string;
-  occupation?: string;
-  party?: string;
-  interviewer?: string;
-  comments?: string;
+  zip_code?: string;
+  phone?: number | undefined;
   date_conducted?: string;
-  raw_transcript?: string;
-  date?: string;
-  age?: number;
+  subject_age?: string;
+  race?: string;
+  military?: boolean;
+  hours_worked_per_week?: number | undefined;
+  union_affiliation?: string;
+  married?: boolean;
+  children?: boolean;
+  email?: string;
+  income?: number | undefined;
+  facebook?: string;
+  instagram?: string;
+  x_twitter?: string;
 }
 
 /**
@@ -71,8 +87,8 @@ export interface TranscriptChunk {
 }
 
 export interface LabeledChunk extends TranscriptChunk {
-  speaker: 'interviewer' | 'subject' | 'unknown';
-  labeled_text: string;  // "INTERVIEWER: what is your name"
+  speaker: "interviewer" | "subject" | "unknown";
+  labeled_text: string; // "INTERVIEWER: what is your name"
 }
 
 export interface Chunk {
@@ -81,8 +97,8 @@ export interface Chunk {
   start_time: number;
   end_time: number;
   text: string;
-  summary?: string;      // Optional: LLM-generated summary
-  embedding: number[];   // Vector embedding for semantic search
+  summary?: string; // Optional: LLM-generated summary
+  embedding: number[]; // Vector embedding for semantic search
   created_at: string;
 }
 
