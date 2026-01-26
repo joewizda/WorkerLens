@@ -31,7 +31,9 @@ export const uploadGoogleTranscript = async (
       res.status(404).json({ error: "Interview not found" });
       return;
     }
-
+    console.log(
+      `Success uploading Google transcript for interview ${interviewId}`,
+    );
     res.status(200).json({ id: interviewId });
   } catch (err) {
     next(err);
