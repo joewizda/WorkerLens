@@ -1,4 +1,3 @@
-
 export interface EmbeddingSearchResult {
   id: string;
   interview_id: string;
@@ -8,4 +7,13 @@ export interface EmbeddingSearchResult {
   relevance: number;
   start_time?: number;
   end_time?: number;
+}
+
+export interface CreateVectorsRequest {
+  query: string;
+}
+
+export interface SearchEmbeddingsRequest {
+  query: string;
+  limit?: number;
 }
