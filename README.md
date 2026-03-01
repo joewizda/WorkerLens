@@ -52,7 +52,7 @@ PORT=3000
 # Database
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=CFFE
+DB_NAME=POTW
 DB_USER=your_db_user
 DB_PASSWORD=your_db_password
 
@@ -204,6 +204,44 @@ curl -X POST http://localhost:3000/api/media/create-media \
 	-F 'tags=campaign,spot' \
 	-F 'metadata={"duration":30,"format":"mp4"}'
 ```
+
+### 6) Compute Embedding Vector (pgvector-ready)
+
+- Route: `POST /vector/vector`
+- Body: `{ "query": string }`
+- Response: `{ query, results: "[v1,v2,...]" }` where `results` is a stringified vector suitable for use as `$1::vector` in SQL with pgvector.
+
+Curl example:
+
+```bash
+curl -X POST http://localhost:3000/api/vector/vector \
+  -H "Content-Type: application/json" \
+  -d '{"query": "text to embed"}'
+```
+
+#### Note: This endpoint is primarily for testing and debugging embeddings or generating vectors for other uses. For semantic search, use the `/embed` endpoint which handles both embedding and searching.
+
+Recommended pattern for dropdown filters in the frontend: instead of just sending a term like "Housing" to the backend for embedding and search, provide more context in the query to anchor the vector in the intended semantic space. This helps ensure that the embedding captures the relevant aspects of the topic rather than being too generic.
+
+Instead of
+
+```text
+Housing
+```
+
+Use something like
+
+```text
+"Housing costs, affordability, and access in the context of financial inequality"
+```
+
+Or even tighter:
+
+```text
+"Financial inequality related to housing costs and affordability"
+```
+
+This anchors the vector properly.
 
 ## Notes and Tips
 
