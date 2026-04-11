@@ -50,6 +50,37 @@ export const createInterviewFull = async (
       return s;
     };
 
+    const buildMaskedTitle = (
+      occupation?: string,
+      state?: string,
+      date?: string,
+    ): string | undefined => {
+      if (!occupation || !state || !date) return undefined;
+      const trimmedOccupation = occupation.trim();
+      const trimmedState = state.trim();
+      if (!trimmedOccupation || !trimmedState) return undefined;
+      const dateObj = new Date(`${date}T00:00:00Z`);
+      if (Number.isNaN(dateObj.getTime())) return undefined;
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      const monthSegment = months[dateObj.getUTCMonth()];
+      if (!monthSegment) return undefined;
+      const occupationSegment = trimmedOccupation.replace(/\s+/g, "-");
+      return `${occupationSegment}-${trimmedState}-${monthSegment}-${dateObj.getUTCFullYear()}`;
+    };
+
     const metadata: CreateInterviewFullRequest = {
       ...(req.body.title !== undefined && { title: req.body.title }),
       ...(req.body.subject_name !== undefined && {
@@ -106,9 +137,26 @@ export const createInterviewFull = async (
         x_twitter: req.body.x_twitter,
       }),
     };
-    console.log("Metadata from payload: ", metadata);
+    const originalFilename =
+      file.originalname || path.basename(updatedFile.path);
+    const maskedTitle =
+      buildMaskedTitle(
+        metadata.occupation,
+        metadata.state,
+        metadata.date_conducted,
+      ) ||
+      metadata.title ||
+      "untitled-interview";
+
+    const payload: CreateInterviewFullRequest = {
+      ...metadata,
+      title: maskedTitle,
+      original_filename: originalFilename,
+    };
+
+    console.log("Metadata from payload: ", payload);
     const result = await interviewFullService.createInterviewFull(
-      metadata,
+      payload,
       updatedFile,
     );
 

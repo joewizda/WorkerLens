@@ -45,6 +45,7 @@ export interface CreateInterviewRequest {
  */
 export interface CreateInterviewFullRequest {
   title?: string;
+  original_filename?: string;
   subject_name?: string;
   occupation?: string;
   political_affiliation?: string;
